@@ -1,0 +1,39 @@
+# 开发计划
+
+## 任务列表
+
+- [ ] 接 `foray_vision` 的目标，实现多源目标融合与注入
+- [ ] 实现友军**过滤**（进入候选集之前）
+- [ ] 实现弹道解算与云台伺服（硬实时环，独立线程、禁动态分配）
+- [ ] 定义开火门限的目标准入契约（对接 X1 安全门）
+
+## 当前 Agent State
+
+PLAN_READY
+
+## Before Snapshot
+
+commit hash:   （首次提交）
+branch:        main
+modified files: （首次初始化）
+risk level:    L1
+
+## 模糊点与待确认项
+
+- 本仓接口尚未冻结，任务清单为**方向性**的，落地顺序以 `foray_docs/algorithm_structure.md` §9 演进阶段为准
+- 依赖的自研仓尚未建齐，跨仓任务需等对方 `README.md` 明确接口后再启动
+
+## Vector Backend Status
+
+Backend: Markdown
+Status:  ready
+Environment: 仓库内 Markdown 文档（无外部向量后端）
+Index: 本仓 `README.md` / `tree.md` / `decision.md`
+Initialization: 2026-02-19
+Commit: （首次提交）
+
+## Acceptance Criteria
+
+- [ ] 本仓能独立 `colcon build`（无代码时跳过）
+- [ ] CI 绿灯
+- [ ] 每个新增模块带独立可执行测试
