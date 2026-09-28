@@ -9,19 +9,20 @@
 
 ## 当前 Agent State
 
-PLAN_READY
+SKELETON_READY
 
 ## Before Snapshot
 
-commit hash:   （首次提交）
-branch:        main
-modified files: （首次初始化）
+commit hash:   1e24a22
+branch:        feat/build-skeleton
+modified files: .clang-format · package.xml · CMakeLists.txt · tree.md · decision.md · plan.md
 risk level:    L1
 
 ## 模糊点与待确认项
 
 - 本仓接口尚未冻结，任务清单为**方向性**的，落地顺序以 `foray_docs/algorithm_structure.md` §9 演进阶段为准
 - 依赖的自研仓尚未建齐，跨仓任务需等对方 `README.md` 明确接口后再启动
+- `package.xml` 的 `license` 暂为 `TODO`：组织文档未规定私有仓许可证，待确认后补
 
 ## Vector Backend Status
 
@@ -34,6 +35,7 @@ Commit: （首次提交）
 
 ## Acceptance Criteria
 
-- [ ] 本仓能独立 `colcon build`（无代码时跳过）
-- [ ] CI 绿灯
+- [x] 本仓能独立 `colcon build`（本地：1 package finished）
+- [ ] CI 绿灯（待 PR 触发）
 - [ ] 每个新增模块带独立可执行测试
+
