@@ -11,17 +11,24 @@
 ├── tree.md                  本文件
 ├── CODEOWNERS               Review 自动分派
 ├── package.xml              ROS 2 包定义（ament_cmake）
-├── CMakeLists.txt           构建与测试目标（源码、测试落地后在此追加）
+├── CMakeLists.txt           构建与测试目标
 ├── .clang-format            组织 C/C++ 风格（CI 的 lint-c 依据）
 ├── .foray-layer             所属层与依赖边界（CI 校验）
 ├── .gitignore
+├── include/
+│   └── foray_auto_aim/      对外头文件
+│       └── target_candidate.hpp   候选目标结构 + 友军过滤接口
+├── src/
+│   └── filter_friendly.cpp  友军过滤实现
+├── test/
+│   └── test_filter_friendly.cpp   友军过滤的 gtest 用例（7 条）
 └── .github/
     └── workflows/
         └── ci.yml           复制自组织 CI 模板
 ```
 
-> 当前仅含包骨架（`package.xml` / `CMakeLists.txt` / `.clang-format`），**尚无源码目录**。
-> 源码（`include/foray_auto_aim/`、`src/`）与测试（`test/`）随模块落地后在此补记。
+> 已落地第一个模块：**候选目标结构 + 友军过滤**（含 7 条独立可执行测试）。
+> `config/`（参数 YAML）随多源融合与云台参数落地后补记。
 
 ## 记录约束
 
