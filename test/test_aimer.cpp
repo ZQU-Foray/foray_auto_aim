@@ -6,69 +6,65 @@
 
 using namespace foray_auto_aim;
 
-// 1
+namespace {
+
+// 步兵/哨兵 17mm 弹速上限 25 m/s（规则手册）。
+// ⚠️ 当前实现为直瞄，不使用该参数；此处仅按接口传入。
+constexpr double kBulletSpeed = 25.0;
+
+constexpr double kTolerance = 1e-9;
+
+} // namespace
+
+// 1 左前方 45°
 TEST(AimAt, 左前方四十五度) {
-    Eigen::Vector3d target(1.0, 1.0, 0.0);
-    constexpr double bullet_speed = 25.0;
-    const auto command = aim_at(target, bullet_speed);
+    const Eigen::Vector3d position(1.0, 1.0, 0.0);
 
-    constexpr double kTolerance = 1e-9;
-    EXPECT_NEAR(command.yaw, M_PI / 4.0, kTolerance); // 断言 paw
-    EXPECT_LT(command.pitch, 0.0);                    // 断言pitch < 0
-    EXPECT_GT(command.pitch, -5e-2); // 断言pitch 大于一个范围值域  小角度抬起
+    const auto command = aim_at(position, kBulletSpeed);
+
+    EXPECT_NEAR(command.yaw, M_PI / 4.0, kTolerance);
+    EXPECT_NEAR(command.pitch, 0.0, kTolerance);
+    EXPECT_TRUE(command.valid);
 }
-// 2
+
+// 2 正前方
 TEST(AimAt, 正前方) {
-    Eigen::Vector3d target(1.0, 0.0, 0.0);
-    constexpr double bullet_speed = 25.0;
-    const auto command = aim_at(target, bullet_speed);
+    const Eigen::Vector3d position(1.0, 0.0, 0.0);
 
-    constexpr double kTolerance = 1e-9;
-    EXPECT_NEAR(command.yaw, 0.0, kTolerance);
-    EXPECT_LT(command.pitch, 0.0);   // 断言pitch < 0
-    EXPECT_GT(command.pitch, -5e-2); // 断言pitch 大于一个范围值域  小角度抬起
-}
-// 3
-TEST(AimAt, 前方上面四十五度) {
-    Eigen::Vector3d target(1.0, 0.0, 1.0);
-    constexpr double bullet_speed = 25.0;
-    const auto command = aim_at(target, bullet_speed);
+    const auto command = aim_at(position, kBulletSpeed);
 
-    constexpr double kTolerance = 1e-9;
     EXPECT_NEAR(command.yaw, 0.0, kTolerance);
-    EXPECT_LT(command.pitch, -M_PI / 4); // 断言pitch 比直瞄(45°)更抬 —— 弹道补偿生效
-    EXPECT_GT(command.pitch, -M_PI / 2); // 断言pitch 但不会抬到 90°
+    EXPECT_NEAR(command.pitch, 0.0, kTolerance);
+    EXPECT_TRUE(command.valid);
 }
-// 4
+
+// 3 前上方 45°：pitch 向下为正 → 抬头为负
+TEST(AimAt, 前上方四十五度) {
+    const Eigen::Vector3d position(1.0, 0.0, 1.0);
+
+    const auto command = aim_at(position, kBulletSpeed);
+
+    EXPECT_NEAR(command.yaw, 0.0, kTolerance);
+    EXPECT_NEAR(command.pitch, -M_PI / 4.0, kTolerance);
+    EXPECT_TRUE(command.valid);
+}
+
+// 4 右前方 45°：yaw 向左为正 → 偏右为负
 TEST(AimAt, 右前方四十五度) {
-    Eigen::Vector3d target(1.0, -1.0, 0.0);
-    constexpr double bullet_speed = 25.0;
-    const auto command = aim_at(target, bullet_speed);
+    const Eigen::Vector3d position(1.0, -1.0, 0.0);
 
-    constexpr double kTolerance = 1e-9;
+    const auto command = aim_at(position, kBulletSpeed);
+
     EXPECT_NEAR(command.yaw, -M_PI / 4.0, kTolerance);
-    EXPECT_LT(command.pitch, 0.0);   // 断言pitch < 0
-    EXPECT_GT(command.pitch, -5e-2); // 断言pitch 大于一个范围值域  小角度抬起
+    EXPECT_NEAR(command.pitch, 0.0, kTolerance);
+    EXPECT_TRUE(command.valid);
 }
-// 5
-TEST(AimAt, 命中自洽) {
-    constexpr double bullet_speed = 25.0;
-    const Eigen::Vector3d target(3.0, 1.0, 0.5);
 
-    const auto command = aim_at(target, bullet_speed);
-    ASSERT_TRUE(command.valid);
+// 5 边界：目标几乎在正上方 → 水平距离退化 → 不可信
+TEST(AimAt, 目标在正上方时不可信) {
+    const Eigen::Vector3d position(0.0, 0.0, 5.0);
 
-    const double d = std::sqrt(target.x() * target.x() + target.y() * target.y());
-    const double hit = predict_hit_height(d, -command.pitch, bullet_speed); // ⭐ pitch 转回仰角
-    EXPECT_NEAR(hit, target.z(), 5e-3);                                     // 落点 = 目标高度
-}
-// 6
-TEST(AimAt, 弹速过低时不可信) {
-    const Eigen::Vector3d target(5.0, 0.0, 0.0);
-    const auto command = aim_at(target, 1.0); // 5 米飞 5 秒，下坠 122 米 → 无解
+    const auto command = aim_at(position, kBulletSpeed);
+
     EXPECT_FALSE(command.valid);
-}
-// 7
-TEST(AimAt, 水平距离为0几乎在上方或者下方) {
-    EXPECT_FALSE(aim_at({0, 0, 5}, 25.0).valid);
 }

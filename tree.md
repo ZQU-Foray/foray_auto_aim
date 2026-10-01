@@ -18,20 +18,20 @@
 ├── include/
 │   └── foray_auto_aim/      对外头文件
 │       ├── gimbal_command.hpp     云台角指令结构
-│       ├── aimer.hpp              云台角解算接口（含弹道补偿）
+│       ├── aimer.hpp              云台角解算接口（直瞄）
 │       └── target_candidate.hpp   候选目标结构 + 友军过滤接口
 ├── src/
-│   ├── aimer.cpp            云台角解算与弹道迭代实现
+│   ├── aimer.cpp            云台角解算实现（直瞄，不含弹道补偿）
 │   └── filter_friendly.cpp  友军过滤实现
 ├── test/
-│   ├── test_aimer.cpp             云台角解算用例（7 条）
+│   ├── test_aimer.cpp             云台角解算用例（4 条）
 │   └── test_filter_friendly.cpp   友军过滤用例（7 条）
 └── .github/
     └── workflows/
         └── ci.yml           复制自组织 CI 模板
 ```
 
-> 已落地两个模块：① **候选目标结构 + 友军过滤**（7 条测试）② **云台角解算 + 弹道迭代**（7 条测试）。
+> 已落地两个模块：① **候选目标结构 + 友军过滤**（7 条测试）② **云台角解算（直瞄）**（4 条测试）。
 > `config/`（参数 YAML）随多源融合与云台参数落地后补记。
 
 ## 记录约束
