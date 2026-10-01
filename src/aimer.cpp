@@ -5,7 +5,7 @@
 namespace foray_auto_aim {
 
 GimbalCommand aim_at(const Eigen::Vector3d& xyz_in_gimbal, double bullet_speed) {
-    // 弹道补偿待云台就绪后实现（组长 2026-10-01）；该参数属接口预留。
+    // 弹道补偿待云台就绪后实现 该参数属接口预留。
     (void)bullet_speed;
 
     const double x = xyz_in_gimbal.x();
@@ -14,17 +14,17 @@ GimbalCommand aim_at(const Eigen::Vector3d& xyz_in_gimbal, double bullet_speed) 
 
     const double horizontal_distance = std::sqrt(x * x + y * y);
 
-    // 水平距离趋零（目标几乎在正上方/正下方）时 atan2 退化、方向无意义。
-    // 1e-6 m 只是数值下限（不是物理约束），取到它即视为不可信。
+    // 水平距离趋零（目标几乎在正上方/正下方） 无意义
+    // 1e-6 m 数值下限 视为不可信
     if (horizontal_distance < 1e-6) {
         return {0.0, 0.0, false};
     }
 
     GimbalCommand command;
     command.yaw = std::atan2(y, x);
-    // pitch 约定向下为正，而输入 z 轴朝上 → 取负
+    // pitch 约定向下为正，而输入 z 轴朝上 取负
     command.pitch = -std::atan2(z, horizontal_distance);
-    command.valid = true; // 解算可信度判定待实现（接口已留）
+    command.valid = true; // 解算可信度判定待实现
     return command;
 }
 

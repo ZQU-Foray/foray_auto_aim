@@ -8,8 +8,8 @@ using namespace foray_auto_aim;
 
 namespace {
 
-// 步兵/哨兵 17mm 弹速上限 25 m/s（规则手册）。
-// ⚠️ 当前实现为直瞄，不使用该参数；此处仅按接口传入。
+// 步兵/哨兵 17mm 弹速上限 25 m/s
+// 当前实现为直瞄，不使用该参数；此处仅按接口传入
 constexpr double kBulletSpeed = 25.0;
 
 constexpr double kTolerance = 1e-9;
