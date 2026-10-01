@@ -9,6 +9,7 @@ namespace foray_auto_aim {
 struct GimbalCommand {
     double yaw;   ///< 偏航角（rad，向左为正）
     double pitch; ///< 俯仰角（rad，向下为正）
+    bool valid;   ///< false = 本次解算不可信，上层不得据此接管云台或开火
 };
 
 } // namespace foray_auto_aim
