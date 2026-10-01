@@ -5,7 +5,7 @@
 namespace foray_auto_aim {
 
 GimbalCommand aim_at(const Eigen::Vector3d& xyz_in_gimbal, double bullet_speed) {
-    // 弹道补偿待云台就绪后实现 该参数属接口预留。
+    // 弹道补偿待云台就绪后实现 该参数属接口预留
     (void)bullet_speed;
 
     const double x = xyz_in_gimbal.x();
