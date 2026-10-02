@@ -76,3 +76,44 @@ Alternatives:
 Rejected:
 - 用 `bool is_ally`：无法表达"未知"，违背 IFF 保守取向
 - 在本模块内顺带去重：职责重叠，多源融合会重复实现
+
+---
+
+## Decision
+
+Date: 2026-09-30
+
+Context: 需要由目标位置解算云台指向角（闭环链路中「目标 → 云台角」这一环）。
+
+Decision:
+- 输入取 `Eigen::Vector3d`（云台系：x 前 / y 左 / z 上，单位米），输出 `GimbalCommand{yaw, pitch}`
+- 只做**直瞄**：`yaw = atan2(y, x)`、`pitch = -atan2(z, sqrt(x²+y²))`，**不含弹道补偿**
+- **不在本模块输出 `fire`**：开火决策归属 X1 安全门
+
+Reason:
+- 角度符号与坐标系约定绑定：战队约定 yaw 向左为正、pitch 向下为正，而输入 z 轴朝上 → pitch 取负
+- 弹道补偿（重力、飞行时间）需要弹速与弹道模型，属后续增量；先让闭环能转起来
+- 单一职责：算角与决定开火分开，4 条用例钉住符号
+
+Alternatives:
+- 复用参考实现的世界系输出 → 还需一次旋转，且引入上游依赖
+- 输入用三个裸 double → 顺序易错、语义不清
+
+Rejected:
+- 在本模块内做弹道补偿 → 现缺弹速与弹道模型，会拖住整个闭环
+- 输出里带 `fire` → 与安全门职责重叠
+
+
+---
+
+## Decision
+
+Date: 2026-10-01
+
+Context: 弹道解算什么时候做
+
+Decision: 暂不做 只留接口 aim_at 的 bullet_speed 参数 与 GimbalCommand.valid 当前实现为直瞄
+
+Reason: 目前用激光头测自瞄算法 不需要弹道 后续做成单独模块
+
+Rejected: 保留补偿实现但默认关闭 未经验证的代码路径
