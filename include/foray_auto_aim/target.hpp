@@ -49,6 +49,9 @@ class Target {
 
     /// @brief 由状态计算第id块板子的位置
     Eigen::Vector3d h_armor_xyz(const Eigen::Matrix<double, 11, 1>& x, int armor_id) const;
+    /// @brief 观测雅可比 3x11 观测为装甲板 xyz
+    Eigen::Matrix<double, 3, 11> h_jacobian(const Eigen::Matrix<double, 11, 1>& x,
+                                            int armor_id) const;
 };
 
 } // namespace foray_auto_aim

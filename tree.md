@@ -19,19 +19,24 @@
 │   └── foray_auto_aim/      对外头文件
 │       ├── gimbal_command.hpp     云台角指令结构
 │       ├── aimer.hpp              云台角解算接口（直瞄）
-│       └── target_candidate.hpp   候选目标结构 + 友军过滤接口
+│       ├── target_candidate.hpp   候选目标结构 + 友军过滤接口
+│       ├── detector.hpp           装甲板检测接口（只留接口 实现待模型）
+│       └── target.hpp             整车状态估计 EKF（11 维）
 ├── src/
 │   ├── aimer.cpp            云台角解算实现（直瞄）
-│   └── filter_friendly.cpp  友军过滤实现
+│   ├── filter_friendly.cpp  友军过滤实现
+│   └── target.cpp           整车状态估计实现
 ├── test/
 │   ├── test_aimer.cpp             云台角解算用例（5 条）
-│   └── test_filter_friendly.cpp   友军过滤用例（7 条）
+│   ├── test_filter_friendly.cpp   友军过滤用例（7 条）
+│   └── test_target.cpp            整车 EKF 用例（仿真 静止目标收敛）
 └── .github/
     └── workflows/
         └── ci.yml           复制自组织 CI 模板
 ```
 
-> 已落地两个模块：① **候选目标结构 + 友军过滤**（7 条测试）② **云台角解算（直瞄）**（5 条测试；弹道解算暂不做）。
+> 已落地三个模块：① **候选目标结构 + 友军过滤**（7 条测试）② **云台角解算（直瞄）**（5 条测试）③ **整车状态估计 EKF**（1 条仿真测试）。
+> 弹道解算暂不做；`detector` 只留接口，实现待模型就绪。
 > `config/`（参数 YAML）随多源融合与云台参数落地后补记。
 
 ## 记录约束

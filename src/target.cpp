@@ -8,8 +8,8 @@ namespace {
 
 // 过程噪声 加速度方差和角加速度方差
 // 测试的靶车不转动 角度速度极小 防止偏移(靶车测试阶段)
-constexpr double v1 = 100.0; // 加速度方差
-constexpr double v2 = 1e-6;  // 角速度方差
+constexpr double v1 = 1.0;  // 加速度方差 靶车测试没那么灵活 方差小 sp默认100.0
+constexpr double v2 = 1e-6; // 角速度方差
 
 // 观测噪声 位置误差约 1cm → (0.01)² = 1e-4
 // 现在测试的相机不同 待新相机标定后替换为实测值
@@ -31,6 +31,8 @@ Target::Target(const Eigen::Vector3d& xyz0, double a0, double r0,
                const Eigen::Matrix<double, 11, 1>& p0_diag, int armor_num)
     : armor_num_(armor_num) {
     x_.setZero();
+    // 顺序 x vx y vy z vz a w r l h
+    // 为了滤波效果 按照靶车 来放参数 后面可以调整 测试文件有写
     P_ = p0_diag.asDiagonal();
     x_[0] = xyz0.x();
     x_[2] = xyz0.y();
@@ -38,7 +40,7 @@ Target::Target(const Eigen::Vector3d& xyz0, double a0, double r0,
     x_[6] = a0;
     x_[8] = r0;
     // 因为现在是靶车测试 1 3 5 7 为速度和角速度 暂时不考虑
-    // 靶车的装甲板相对 h l 为0
+    // 靶车的装甲板相对 h l 为 0
 }
 
 void Target::predict(double dt) {
@@ -47,6 +49,7 @@ void Target::predict(double dt) {
     const double b = dt * dt * dt / 2;
     const double c = dt * dt;
     // 参考sp的写法但是跑了clang之后 没那么好看
+    // clang-format off
     Eigen::Matrix<double, 11, 11> F{
         {1, dt, 0, 0, 0, 0, 0, 0, 0, 0, 0}, {0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
         {0, 0, 1, dt, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0},
@@ -56,7 +59,7 @@ void Target::predict(double dt) {
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}};
 
     // Q
-    Eigen::MatrixXd Q{{a * v1, b * v1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    Eigen::Matrix<double, 11, 11> Q{{a * v1, b * v1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
                       {b * v1, c * v1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
                       {0, 0, a * v1, b * v1, 0, 0, 0, 0, 0, 0, 0},
                       {0, 0, b * v1, c * v1, 0, 0, 0, 0, 0, 0, 0},
@@ -67,7 +70,7 @@ void Target::predict(double dt) {
                       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
                       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
                       {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
-
+    // clang-format on
     // 预测
     x_ = F * x_;
     P_ = F * P_ * F.transpose() + Q;
@@ -90,13 +93,58 @@ Eigen::Vector3d Target::h_armor_xyz(const Eigen::Matrix<double, 11, 1>& x, int a
     const double angle =
         limit_rad(x[6] + armor_id * 2 * M_PI /
                              armor_num_); // angle 可以理解是朝向 分为0123个板子的 0 90 180 270
-    bool use_l_h = (armor_num_ == 4) && (armor_id == 1 || armor_id == 3); // 判断是否需要使用l 和 h
+    const bool use_l_h = (armor_num_ == 4) && (armor_id == 1 || armor_id == 3); // 判断是否需要使用l 和 h
     const double r = (use_l_h) ? x[8] + x[9] : x[8];
     const double armor_x = x[0] - r * std::cos(angle); // 计算整车的x坐标 根据装甲板的中心x推
     const double armor_y = x[2] - r * std::sin(angle);      // 同理计算整车y
     const double armor_z = (use_l_h) ? x[4] + x[10] : x[4]; // 长边稍微高一些
 
     return {armor_x, armor_y, armor_z};
+}
+
+Eigen::Matrix<double, 3, 11> Target::h_jacobian(const Eigen::Matrix<double, 11, 1>& x,
+                                                int armor_id) const {
+
+    const double angle = limit_rad(x[6] + armor_id * 2 * M_PI / armor_num_); // 计算装甲板的朝向角度
+    const bool use_l_h =
+        (armor_num_ == 4) &&
+        (armor_id == 1 || armor_id == 3); // 是否使用l 和 h 前面初始化变成0了后面这里不影响靶车调试
+
+    const double r = (use_l_h) ? x[8] + x[9] : x[8];
+    // 板位置对朝向a(不是加速度) 板子绕着中心转动
+    const double dx_da = r * std::sin(angle);
+    const double dy_da = -r * std::cos(angle);
+    // 板位置对半径r求偏导
+    const double dx_dr = -std::cos(angle);
+    const double dy_dr = -std::sin(angle);
+    const double dx_dl = (use_l_h) ? -std::cos(angle) : 0.0;
+    const double dy_dl = (use_l_h) ? -std::sin(angle) : 0.0;
+    // 板位置对半径差 l / 高度差 h 的偏导 只有长边短边(1 3 号板)才用
+    const double dz_dh = (use_l_h) ? 1.0 : 0.0;
+    // clang-format off
+  Eigen::Matrix<double, 3, 11> H {
+    {1, 0, 0, 0, 0, 0, dx_da, 0, dx_dr, dx_dl,     0},
+    {0, 0, 1, 0, 0, 0, dy_da, 0, dy_dr, dy_dl,     0},
+    {0, 0, 0, 0, 1, 0,     0, 0,     0,     0, dz_dh}
+  };
+    // clang-format on
+    return H;
+}
+// xyz_measured 来自solver观察的实际装甲板位置 armor_id 第几个板子
+void Target::update(const Eigen::Vector3d& xyz_measured, int armor_id) {
+    const Eigen::Vector3d xyz_predicted =
+        h_armor_xyz(x_, armor_id); // 用当前状态计算出第armor_id块板子在哪里
+    const Eigen::Matrix<double, 3, 11> H =
+        h_jacobian(x_, armor_id); // 敏感度矩阵 状态改变一点 预测位置会变化多少
+    const Eigen::Vector3d residual = xyz_measured - xyz_predicted; // 观测减去预测
+    const Eigen::Matrix<double, 3, 3> R =
+        Eigen::Matrix<double, 3, 3>::Identity() * kMeasVar; // 观测噪声 重投影误差
+    const Eigen::Matrix<double, 11, 3> K =
+        P_ * H.transpose() * (H * P_ * H.transpose() + R).inverse(); // 跟一维的一样 计算k
+    x_ += K * residual;
+    x_[6] = limit_rad(x_[6]); // 上一步 角度有影响重新限制
+    const Eigen::Matrix<double, 11, 11> I = Eigen::Matrix<double, 11, 11>::Identity();
+    P_ = (I - K * H) * P_ * (I - K * H).transpose() + K * R * K.transpose();
 }
 
 } // namespace foray_auto_aim
