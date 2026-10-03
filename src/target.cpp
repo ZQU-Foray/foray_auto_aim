@@ -88,27 +88,28 @@ TargetState Target::state() const {
     return s;
 }
 
-// 计算出装甲板中心的坐标（考虑长短轴） 后续加入具体 l和h
+// 由整车状态算第 id 块装甲板的位置
 Eigen::Vector3d Target::h_armor_xyz(const Eigen::Matrix<double, 11, 1>& x, int armor_id) const {
-    const double angle =
-        limit_rad(x[6] + armor_id * 2 * M_PI /
-                             armor_num_); // angle 可以理解是朝向 分为0123个板子的 0 90 180 270
-    const bool use_l_h = (armor_num_ == 4) && (armor_id == 1 || armor_id == 3); // 判断是否需要使用l 和 h
+    // angle 是板朝向 4 块板分别偏 0 90 180 270
+    const double angle = limit_rad(x[6] + armor_id * 2 * M_PI / armor_num_);
+    // 只有 1 3 号板是长边 才用 l 与 h
+    const bool use_l_h = (armor_num_ == 4) && (armor_id == 1 || armor_id == 3);
+
     const double r = (use_l_h) ? x[8] + x[9] : x[8];
-    const double armor_x = x[0] - r * std::cos(angle); // 计算整车的x坐标 根据装甲板的中心x推
-    const double armor_y = x[2] - r * std::sin(angle);      // 同理计算整车y
-    const double armor_z = (use_l_h) ? x[4] + x[10] : x[4]; // 长边稍微高一些
+    // 由车体中心推装甲板中心
+    const double armor_x = x[0] - r * std::cos(angle);
+    const double armor_y = x[2] - r * std::sin(angle);
+    const double armor_z = (use_l_h) ? x[4] + x[10] : x[4];
 
     return {armor_x, armor_y, armor_z};
 }
 
 Eigen::Matrix<double, 3, 11> Target::h_jacobian(const Eigen::Matrix<double, 11, 1>& x,
                                                 int armor_id) const {
-
-    const double angle = limit_rad(x[6] + armor_id * 2 * M_PI / armor_num_); // 计算装甲板的朝向角度
-    const bool use_l_h =
-        (armor_num_ == 4) &&
-        (armor_id == 1 || armor_id == 3); // 是否使用l 和 h 前面初始化变成0了后面这里不影响靶车调试
+    // angle 是板朝向 4 块板分别偏 0 90 180 270
+    const double angle = limit_rad(x[6] + armor_id * 2 * M_PI / armor_num_);
+    // 只有 1 3 号板是长边 才用 l 与 h 靶车 l h 为 0 暂不影响
+    const bool use_l_h = (armor_num_ == 4) && (armor_id == 1 || armor_id == 3);
 
     const double r = (use_l_h) ? x[8] + x[9] : x[8];
     // 板位置对朝向a(不是加速度) 板子绕着中心转动
