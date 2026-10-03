@@ -10,6 +10,7 @@ find_package(Eigen3 REQUIRED)
 add_library(${PROJECT_NAME} SHARED
     src/filter_friendly.cpp
     src/aimer.cpp
+    src/target.cpp
 )
 
 
@@ -27,6 +28,10 @@ if(BUILD_TESTING)
 
     ament_add_gtest(test_aimer test/test_aimer.cpp) 
     target_link_libraries(test_aimer ${PROJECT_NAME}) 
+
+    ament_add_gtest(test_target test/test_target.cpp)
+    target_link_libraries(test_target ${PROJECT_NAME})
+
 endif()
 
 ament_export_dependencies(Eigen3)

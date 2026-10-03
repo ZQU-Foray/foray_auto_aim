@@ -5,17 +5,18 @@
 - [ ] 接 `foray_vision` 的目标，实现多源目标融合与注入
 - [ ] 实现友军**过滤**（进入候选集之前）—— 核心函数与 7 条测试已落地，待接入链路
 - [ ] 实现弹道解算与云台伺服（硬实时环，独立线程、禁动态分配）—— 弹道暂不做 直瞄已落地 伺服环待做
+- [x] **整车状态估计 EKF**（11 维，`predict` / `update` / 观测雅可比 `h_jacobian` + 仿真测试）—— 2026-10-03 落地
 - [ ] 定义开火门限的目标准入契约（对接 X1 安全门）
 
 ## 当前 Agent State
 
-SKELETON_READY
+TARGET_EKF_READY
 
 ## Before Snapshot
 
-commit hash:   c0fd2a9 hash>
-branch:        feat/friendly-filter
-modified files: include/foray_auto_aim/{gimbal_command,aimer}.hpp · src/aimer.cpp · test/test_aimer.cpp · tree.md · decision.md · plan.md
+commit hash:   31133e6
+branch:        feat/target
+modified files: include/foray_auto_aim/{detector,target}.hpp · src/target.cpp · test/test_target.cpp · CMakeLists.txt · tree.md · decision.md · plan.md
 risk level:    L1
 
 ## 模糊点与待确认项
@@ -38,4 +39,4 @@ Commit: （首次提交）
 
 - [x] 本仓能独立 `colcon build`（本地：1 package finished）
 - [ ] CI 绿灯（待 PR 触发）
-- [x] 每个新增模块带独立可执行测试（友军过滤：7 条 gtest 用例全绿）
+- [x] 每个新增模块带独立可执行测试（友军过滤 7 条 · 云台角 5 条 · 整车 EKF 1 条，共 13 条全绿）
