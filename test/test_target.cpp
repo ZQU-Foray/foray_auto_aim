@@ -13,7 +13,7 @@ constexpr double kR = 0.2; // 板到中心半径 米
 constexpr int kArmorNum = 4;
 constexpr double kSigma = 0.01; // 观测噪声标准差 米（1 cm）不是实际相机的 只是用于测试
 constexpr int kFrames = 200;
-constexpr double kDt = 0.01; // 100 Hz
+constexpr double kDt = 0.01; // 100 Hz 预测的hz 后面主程序需要调整
 
 // 重新计算一遍与c文件的计算实现隔离再验证
 Eigen::Vector3d true_armor_xyz(const Eigen::Vector3d& center, double yaw, int id) {
@@ -64,4 +64,56 @@ TEST(Target, 静止的目标收敛并且误差小于观测误差) {
 
     EXPECT_LT(std::sqrt(sum_est_err / kFrames),
               std::sqrt(sum_meas_err / kFrames)); // 估计的误差小于观测的误差
+}
+
+TEST(Target, 匀速的目标能估计出速度) {
+    const Eigen::Vector3d center0{5.0, 0.0, 0.5};
+    const Eigen::Vector3d v_true{0.0, 1.0, 0.0}; // y方向 1m/s移动
+    const double yaw = 0.0;
+    const int id = 0;
+
+    const Eigen::Vector3d init_guess = center0 + Eigen::Vector3d(0.5, -0.3, 0.0);
+    // 顺序 x vx y vy z vz a w r l h
+    Eigen::Matrix<double, 11, 1> p0_diag{{0.25}, {1.0},  {0.25}, {1.0},  {0.25}, {1.0},
+                                         {0.04}, {0.01}, {1e-6}, {1e-6}, {1e-6}};
+
+    Target target(init_guess, yaw, kR, p0_diag, kArmorNum);
+
+    std::mt19937 gen(42);
+    std::normal_distribution<double> noise(0.0, kSigma);
+
+    double sum_meas_err = 0.0;
+    double sum_est_err = 0.0;
+    double sum_v_err = 0.0;
+    int n_tail = 0;
+
+    for (int i = 0; i < kFrames; ++i) {
+        // 真值 不加噪声
+        Eigen::Vector3d center_now = {5.0, center0[1] + v_true[1] * (i * kDt),
+                                      0.5}; // 模拟y方向上匀速 中心随着帧移动
+        // 观测 装甲板加上噪声
+        Eigen::Vector3d z = true_armor_xyz(center_now, yaw, id);
+        z.x() += noise(gen);
+        z.y() += noise(gen);
+        z.z() += noise(gen);
+
+        target.predict(kDt);  // 当前时刻的预测
+        target.update(z, id); // 更新当前时刻的滤波后的值
+
+        // 为了观测实验的结果只看后半段落
+        if (i < kFrames / 2) {
+            continue;
+        }
+
+        sum_meas_err += (z - true_armor_xyz(center_now, yaw, id)).squaredNorm();
+        sum_est_err += (target.state().xyz - center_now).squaredNorm();
+        sum_v_err = (target.state().vxyz - v_true).squaredNorm();
+
+        ++n_tail;
+    }
+
+    const double v_rmse = std::sqrt(sum_v_err / n_tail);
+    std::cout << "速度 RMSE = " << v_rmse << " m/s\n";
+    EXPECT_LT(v_rmse, 0.05);
+    EXPECT_LT(std::sqrt(sum_est_err / n_tail), std::sqrt(sum_meas_err / n_tail));
 }
