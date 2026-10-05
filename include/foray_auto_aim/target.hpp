@@ -21,8 +21,8 @@ struct TargetState {
 
 // 确认板子的结果
 struct AssociationResult {
-    int id;      ///< 板子编号 -1 代表出错也就是初始值
-    double dist; ///< 与最近板子的距离
+    int id{-1};       ///< 板子编号 -1 代表出错也就是初始值
+    double dist{1.0}; ///< 与最近板子的距离
 };
 
 /// 整车状态估计器 EKF 匀速模型 装甲板位置观测

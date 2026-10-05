@@ -170,7 +170,7 @@ AssociationResult Target::associate(const Eigen::Vector3d& xyz_measured) const {
         auto predicted_armor_xyz =
             h_armor_xyz(x_, id); // x_输入的是目标整车状态 根据目标整车状态来计算的
         auto dist = (xyz_measured - predicted_armor_xyz).norm();
-        if (dist < result.dist) {
+        if (dist < best_dist) {
             best_dist = dist;
             result.id = id;
         }
