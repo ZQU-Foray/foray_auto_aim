@@ -15,6 +15,7 @@ constexpr double kSigma = 0.01; // 观测噪声标准差 米（1 cm）不是实�
 constexpr int kFrames = 200;
 constexpr double kDt = 0.01; // 100 Hz 预测的hz 后面主程序需要调整
 
+// NIS 卡方门限
 // 重新计算一遍与c文件的计算实现隔离再验证
 Eigen::Vector3d true_armor_xyz(const Eigen::Vector3d& center, double yaw, int id) {
     const double angle = yaw + id * 2.0 * M_PI / kArmorNum;
@@ -116,4 +117,97 @@ TEST(Target, 匀速的目标能估计出速度) {
     std::cout << "速度 RMSE = " << v_rmse << " m/s\n";
     EXPECT_LT(v_rmse, 0.05);
     EXPECT_LT(std::sqrt(sum_est_err / n_tail), std::sqrt(sum_meas_err / n_tail));
+}
+// 这个同目标微微动 靶车的情况
+TEST(Target, 四块板轮流出现时中心不跳变) {
+    const Eigen::Vector3d center{5.0, 0.0, 0.5}; // 真实值中心
+    const double yaw = 0.0;
+    const Eigen::Vector3d init_guess = center + Eigen::Vector3d(0.5, -0.3, 0.0);
+    Eigen::Matrix<double, 11, 1> p0_diag{{0.25}, {1.0},  {0.25}, {1.0},  {0.25}, {1.0},
+                                         {0.04}, {0.01}, {1e-6}, {1e-6}, {1e-6}};
+
+    Target target(init_guess, yaw, kR, p0_diag, kArmorNum);
+
+    std::mt19937 gen(42);
+    std::normal_distribution<double> noise(0.0, kSigma);
+
+    double sum_est_err = 0.0;
+    int n = 0;
+    // 前面的kFrame 只有200 太少了这里单独换成400
+    for (int i = 0; i < 400; ++i) {
+        // 每50帧率换一块板子 测试换板子(0-1-2-3-0...)
+        const int id = (i / 50) % kArmorNum;
+        // 观察(加上噪声)
+        Eigen::Vector3d z = true_armor_xyz(center, yaw, id);
+        z.x() += noise(gen);
+        z.y() += noise(gen);
+        z.z() += noise(gen);
+
+        target.predict(kDt);  // 预测当前的
+        target.update(z, id); // 更新滤波数值
+        // 前面在收敛 统计稍微后一点的 240 而不是 250是为了多验证一个装甲板
+        if (i < 240) {
+            continue;
+        }
+        ++n;
+        sum_est_err += (target.state().xyz - center).squaredNorm();
+    }
+    const double rmse = std::sqrt(sum_est_err / n);
+    std::cout << "换板时中心 RMSE = " << rmse << " m\n";
+    EXPECT_LT(rmse, 0.02);
+}
+
+TEST(Target, 认板子可以识别出哪一个装甲板加上野值判断) {
+    const Eigen::Vector3d center{5.0, 0.0, 0.5};
+    const double yaw = 0.0;
+    Eigen::Matrix<double, 11, 1> p0_diag{{0.25}, {1.0},  {0.25}, {1.0},  {0.25}, {1.0},
+                                         {0.04}, {0.01}, {1e-6}, {1e-6}, {1e-6}};
+    Target target(center, yaw, kR, p0_diag, kArmorNum);
+    for (int id = 0; id < kArmorNum; ++id) {
+        const auto res = target.associate(true_armor_xyz(center, yaw, id));
+        EXPECT_EQ(res.id, id);
+    }
+    const auto outlier = target.associate(center + Eigen::Vector3d(3.0, 0.0, 0.0));
+    EXPECT_EQ(outlier.id, -1);
+}
+
+TEST(Target, NIS能排除野值影响观测) {
+    const Eigen::Vector3d center{5.0, 0.0, 0.5};
+    const Eigen::Vector3d v_true{0.0, 1.0, 0.0}; // y方向 1m/s移动
+    const double yaw = 0.0;
+    const int id = 0;
+
+    const Eigen::Vector3d init_guess = center + Eigen::Vector3d(0.5, -0.3, 0.0);
+    // 顺序 x vx y vy z vz a w r l h
+    Eigen::Matrix<double, 11, 1> p0_diag{{0.25}, {1.0},  {0.25}, {1.0},  {0.25}, {1.0},
+                                         {0.04}, {0.01}, {1e-6}, {1e-6}, {1e-6}};
+
+    Target target(init_guess, yaw, kR, p0_diag, kArmorNum);
+
+    std::mt19937 gen(42);
+    std::normal_distribution<double> noise(0.0, kSigma);
+
+    const Eigen::Vector3d z_normal = true_armor_xyz(center, yaw, 0);
+    const Eigen::Vector3d z_outlier = z_normal + Eigen::Vector3d(5.0, 0.0, 0.0); // 野值远偏离5米
+
+    // 先运行一会 让数值收敛
+    // NIS按照协方差来缩放 没有收敛的时候的P很大 s很大 这样马氏距离的对应影响小了
+    for (int i = 0; i < 100; ++i) {
+        target.predict(kDt);
+        target.update(z_normal, 0);
+    }
+
+    // 预测减去观测 这里是野值
+    const Eigen::Vector3d before = target.state().xyz;
+    target.update(z_outlier, 0); // 只调 update（不需要 predict）
+    const Eigen::Vector3d after = target.state().xyz;
+    EXPECT_LT((after - before).norm(), 1e-9) << "野值没被挡住";
+
+    // 正常的观测  误差1cm略有变化
+    const Eigen::Vector3d z_normal2 =
+        true_armor_xyz(center, yaw, 0) + Eigen::Vector3d(0.01, 0.0, 0.0);
+    const Eigen::Vector3d before2 = target.state().xyz;
+    target.update(z_normal2, 0);
+    const Eigen::Vector3d after2 = target.state().xyz;
+    EXPECT_GT((after2 - before2).norm(), 1e-6) << "正常观测被误挡了";
 }

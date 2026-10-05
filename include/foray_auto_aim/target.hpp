@@ -19,6 +19,12 @@ struct TargetState {
     double h;             ///< 板间高度差 米 靶车等高时为 0
 };
 
+// 确认板子的结果
+struct AssociationResult {
+    int id;      ///< 板子编号 -1 代表出错也就是初始值
+    double dist; ///< 与最近板子的距离
+};
+
 /// 整车状态估计器 EKF 匀速模型 装甲板位置观测
 class Target {
   public:
@@ -41,6 +47,11 @@ class Target {
 
     /// @brief 当前估计
     TargetState state() const;
+
+    /// @brief 用观测的位置坐标判断是哪一个块板子 做最近相邻匹配
+    /// @param xyz_measured  云台系的观测
+    /// @return 装甲板的编号
+    AssociationResult associate(const Eigen::Vector3d& xyz_measured) const;
 
   private:
     int armor_num_;                   ///< 装甲板数量
