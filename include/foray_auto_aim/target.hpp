@@ -42,8 +42,7 @@ class Target {
 
     /// @brief 用一次装甲板观测修正
     /// @param xyz_measured 云台系下该装甲板的位置 米
-    /// @param armor_id 装甲板编号 0-3
-    void update(const Eigen::Vector3d& xyz_measured, int armor_id);
+    void update(const Eigen::Vector3d& xyz_measured);
 
     /// @brief 当前估计
     TargetState state() const;

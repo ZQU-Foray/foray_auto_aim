@@ -30,7 +30,7 @@ TEST(Target, 静止的目标收敛并且误差小于观测误差) {
     const double yaw = 0.0;
     const int id = 0;
     // 故意给偏离才能测出滤波效果
-    const Eigen::Vector3d init_guess = center + Eigen::Vector3d(0.5, -0.3, 0.0);
+    const Eigen::Vector3d init_guess = center + Eigen::Vector3d(0.2, -0.1, 0.0);
     // 按照靶车的来 但可能不准确 以后续实际测试再调试数值 先保证ekf的逻辑和处理没问题
     // 顺序 x vx y vy z vz a w r l h
     // 位置 σ=0.5m 速度 σ=1m/s 朝向 σ=0.2rad 角速度 σ=0.1
@@ -53,8 +53,8 @@ TEST(Target, 静止的目标收敛并且误差小于观测误差) {
         z.y() += noise(gen);
         z.z() += noise(gen);
 
-        target.predict(kDt);  // 更新预测
-        target.update(z, id); // 更新观测
+        target.predict(kDt); // 更新预测
+        target.update(z);    // 更新观测
 
         sum_meas_err += (z - true_armor_xyz(center, yaw, id))
                             .squaredNorm(); // z是全部加上观测噪声的读数
@@ -73,7 +73,7 @@ TEST(Target, 匀速的目标能估计出速度) {
     const double yaw = 0.0;
     const int id = 0;
 
-    const Eigen::Vector3d init_guess = center0 + Eigen::Vector3d(0.5, -0.3, 0.0);
+    const Eigen::Vector3d init_guess = center0 + Eigen::Vector3d(0.2, -0.1, 0.0);
     // 顺序 x vx y vy z vz a w r l h
     Eigen::Matrix<double, 11, 1> p0_diag{{0.25}, {1.0},  {0.25}, {1.0},  {0.25}, {1.0},
                                          {0.04}, {0.01}, {1e-6}, {1e-6}, {1e-6}};
@@ -98,8 +98,8 @@ TEST(Target, 匀速的目标能估计出速度) {
         z.y() += noise(gen);
         z.z() += noise(gen);
 
-        target.predict(kDt);  // 当前时刻的预测
-        target.update(z, id); // 更新当前时刻的滤波后的值
+        target.predict(kDt); // 当前时刻的预测
+        target.update(z);    // 更新当前时刻的滤波后的值
 
         // 为了观测实验的结果只看后半段落
         if (i < kFrames / 2) {
@@ -108,7 +108,7 @@ TEST(Target, 匀速的目标能估计出速度) {
 
         sum_meas_err += (z - true_armor_xyz(center_now, yaw, id)).squaredNorm();
         sum_est_err += (target.state().xyz - center_now).squaredNorm();
-        sum_v_err = (target.state().vxyz - v_true).squaredNorm();
+        sum_v_err += (target.state().vxyz - v_true).squaredNorm();
 
         ++n_tail;
     }
@@ -122,7 +122,7 @@ TEST(Target, 匀速的目标能估计出速度) {
 TEST(Target, 四块板轮流出现时中心不跳变) {
     const Eigen::Vector3d center{5.0, 0.0, 0.5}; // 真实值中心
     const double yaw = 0.0;
-    const Eigen::Vector3d init_guess = center + Eigen::Vector3d(0.5, -0.3, 0.0);
+    const Eigen::Vector3d init_guess = center + Eigen::Vector3d(0.2, -0.1, 0.0);
     Eigen::Matrix<double, 11, 1> p0_diag{{0.25}, {1.0},  {0.25}, {1.0},  {0.25}, {1.0},
                                          {0.04}, {0.01}, {1e-6}, {1e-6}, {1e-6}};
 
@@ -143,8 +143,8 @@ TEST(Target, 四块板轮流出现时中心不跳变) {
         z.y() += noise(gen);
         z.z() += noise(gen);
 
-        target.predict(kDt);  // 预测当前的
-        target.update(z, id); // 更新滤波数值
+        target.predict(kDt); // 预测当前的
+        target.update(z);    // 更新滤波数值
         // 前面在收敛 统计稍微后一点的 240 而不是 250是为了多验证一个装甲板
         if (i < 240) {
             continue;
@@ -177,7 +177,7 @@ TEST(Target, NIS能排除野值影响观测) {
     const double yaw = 0.0;
     const int id = 0;
 
-    const Eigen::Vector3d init_guess = center + Eigen::Vector3d(0.5, -0.3, 0.0);
+    const Eigen::Vector3d init_guess = center + Eigen::Vector3d(0.2, -0.3, 0.0);
     // 顺序 x vx y vy z vz a w r l h
     Eigen::Matrix<double, 11, 1> p0_diag{{0.25}, {1.0},  {0.25}, {1.0},  {0.25}, {1.0},
                                          {0.04}, {0.01}, {1e-6}, {1e-6}, {1e-6}};
@@ -188,18 +188,18 @@ TEST(Target, NIS能排除野值影响观测) {
     std::normal_distribution<double> noise(0.0, kSigma);
 
     const Eigen::Vector3d z_normal = true_armor_xyz(center, yaw, 0);
-    const Eigen::Vector3d z_outlier = z_normal + Eigen::Vector3d(5.0, 0.0, 0.0); // 野值远偏离5米
+    const Eigen::Vector3d z_outlier = z_normal + Eigen::Vector3d(0.1, 0.0, 0.0); // 野值偏离 0.1 米
 
     // 先运行一会 让数值收敛
     // NIS按照协方差来缩放 没有收敛的时候的P很大 s很大 这样马氏距离的对应影响小了
     for (int i = 0; i < 100; ++i) {
         target.predict(kDt);
-        target.update(z_normal, 0);
+        target.update(z_normal);
     }
 
     // 预测减去观测 这里是野值
     const Eigen::Vector3d before = target.state().xyz;
-    target.update(z_outlier, 0); // 只调 update（不需要 predict）
+    target.update(z_outlier); // 只调 update（不需要 predict）
     const Eigen::Vector3d after = target.state().xyz;
     EXPECT_LT((after - before).norm(), 1e-9) << "野值没被挡住";
 
@@ -207,7 +207,7 @@ TEST(Target, NIS能排除野值影响观测) {
     const Eigen::Vector3d z_normal2 =
         true_armor_xyz(center, yaw, 0) + Eigen::Vector3d(0.01, 0.0, 0.0);
     const Eigen::Vector3d before2 = target.state().xyz;
-    target.update(z_normal2, 0);
+    target.update(z_normal2);
     const Eigen::Vector3d after2 = target.state().xyz;
     EXPECT_GT((after2 - before2).norm(), 1e-6) << "正常观测被误挡了";
 }

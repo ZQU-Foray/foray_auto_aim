@@ -138,8 +138,13 @@ Eigen::Matrix<double, 3, 11> Target::h_jacobian(const Eigen::Matrix<double, 11, 
     // clang-format on
     return H;
 }
-// xyz_measured 来自solver观察的实际装甲板位置 armor_id 第几个板子
-void Target::update(const Eigen::Vector3d& xyz_measured, int armor_id) {
+// xyz_measured 来自solver观察的实际装甲板位置
+// 在内部完成数据关联，避免调用方绕过认板逻辑
+void Target::update(const Eigen::Vector3d& xyz_measured) {
+    const int armor_id = associate(xyz_measured).id;
+    if (armor_id == -1) {
+        return;
+    }
     const Eigen::Vector3d xyz_predicted =
         h_armor_xyz(x_, armor_id); // 用当前状态计算出第armor_id块板子在哪里
     const Eigen::Matrix<double, 3, 11> H =
