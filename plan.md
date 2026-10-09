@@ -17,7 +17,7 @@ TARGET_ASSOCIATION_READY
 
 commit hash:   19eb996
 branch:        feat/associate
-modified files: include/foray_auto_aim/target.hpp · src/target.cpp · test/test_target.cpp · scripts/exp_p0_covariance.py · tree.md · decision.md · plan.md
+modified files: include/foray_auto_aim/target.hpp · src/target.cpp · test/test_target.cpp · tree.md · decision.md · plan.md
 risk level:    L1
 
 ## 模糊点与待确认项
