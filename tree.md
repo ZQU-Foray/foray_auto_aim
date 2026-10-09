@@ -21,21 +21,21 @@
 │       ├── aimer.hpp              云台角解算接口（直瞄）
 │       ├── target_candidate.hpp   候选目标结构 + 友军过滤接口
 │       ├── detector.hpp           装甲板检测接口（只留接口 实现待模型）
-│       └── target.hpp             整车状态估计 EKF（11 维）
+│       └── target.hpp             整车状态估计 EKF（11 维 含认板与野值门限）
 ├── src/
 │   ├── aimer.cpp            云台角解算实现（直瞄）
 │   ├── filter_friendly.cpp  友军过滤实现
-│   └── target.cpp           整车状态估计实现
+│   └── target.cpp           整车状态估计实现（predict/update/认板/NIS）
 ├── test/
 │   ├── test_aimer.cpp             云台角解算用例（5 条）
 │   ├── test_filter_friendly.cpp   友军过滤用例（7 条）
-│   └── test_target.cpp            整车 EKF 用例（仿真 静止目标收敛）
+│   └── test_target.cpp            整车 EKF 用例（5 条：收敛/速度/换板/认板野值/NIS）
 └── .github/
     └── workflows/
         └── ci.yml           复制自组织 CI 模板
 ```
 
-> 已落地三个模块：① **候选目标结构 + 友军过滤**（7 条测试）② **云台角解算（直瞄）**（5 条测试）③ **整车状态估计 EKF**（1 条仿真测试）。
+> 已落地三个模块：① **候选目标结构 + 友军过滤**（7 条测试）② **云台角解算（直瞄）**（5 条测试）③ **整车状态估计 EKF**（5 条测试：静止收敛 · 速度估计 · 换板不跳变 · 认板与野值 · NIS 门限）。
 > 弹道解算暂不做；`detector` 只留接口，实现待模型就绪。
 > `config/`（参数 YAML）随多源融合与云台参数落地后补记。
 

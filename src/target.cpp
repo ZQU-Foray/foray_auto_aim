@@ -14,6 +14,13 @@ constexpr double v2 = 1e-6; // 角速度方差
 // 观测噪声 位置误差约 1cm → (0.01)² = 1e-4
 // 现在测试的相机不同 待新相机标定后替换为实测值
 constexpr double kMeasVar = 1e-4;
+// 车体的装甲板认板子的距离们限 滤波器未收敛的时候有误差
+// 而且r需要根据实际情况调整再算(后面实际测会改)
+constexpr double kAssociateMaxDist = 0.5;
+
+// NIS 卡方门限 dof维度为3(xyz) 取地95% = 7.815
+// 来自sp的nis 数据来自概率论的卡方分布临界值表
+constexpr double kNisThreshold = 7.815;
 
 double limit_rad(double angle) {
     while (angle > M_PI) {
@@ -131,8 +138,13 @@ Eigen::Matrix<double, 3, 11> Target::h_jacobian(const Eigen::Matrix<double, 11, 
     // clang-format on
     return H;
 }
-// xyz_measured 来自solver观察的实际装甲板位置 armor_id 第几个板子
-void Target::update(const Eigen::Vector3d& xyz_measured, int armor_id) {
+// xyz_measured 来自solver观察的实际装甲板位置
+// 在内部完成数据关联，避免调用方绕过认板逻辑
+void Target::update(const Eigen::Vector3d& xyz_measured) {
+    const int armor_id = associate(xyz_measured).id;
+    if (armor_id == -1) {
+        return;
+    }
     const Eigen::Vector3d xyz_predicted =
         h_armor_xyz(x_, armor_id); // 用当前状态计算出第armor_id块板子在哪里
     const Eigen::Matrix<double, 3, 11> H =
@@ -140,12 +152,36 @@ void Target::update(const Eigen::Vector3d& xyz_measured, int armor_id) {
     const Eigen::Vector3d residual = xyz_measured - xyz_predicted; // 观测减去预测
     const Eigen::Matrix<double, 3, 3> R =
         Eigen::Matrix<double, 3, 3>::Identity() * kMeasVar; // 观测噪声 重投影误差
+                                                            // NIS
+    const Eigen::Matrix<double, 3, 3> S = H * P_ * H.transpose() + R; // 新息协方差
+    const double nis = residual.transpose() * S.inverse() * residual; // 马氏距离
+    if (nis > kNisThreshold)
+        return; // 野值 丢掉这一帧
+
     const Eigen::Matrix<double, 11, 3> K =
         P_ * H.transpose() * (H * P_ * H.transpose() + R).inverse(); // 跟一维的一样 计算k
     x_ += K * residual;
     x_[6] = limit_rad(x_[6]); // 上一步 角度有影响重新限制
     const Eigen::Matrix<double, 11, 11> I = Eigen::Matrix<double, 11, 11>::Identity();
     P_ = (I - K * H) * P_ * (I - K * H).transpose() + K * R * K.transpose();
+}
+// 观测的装甲板 对比四个由状态中心解算出来的装甲板 得出是哪一个装甲板
+AssociationResult Target::associate(const Eigen::Vector3d& xyz_measured) const {
+    AssociationResult result;
+    // 野值默认-1 空值也是-1
+    result.id = -1;
+    double best_dist = kAssociateMaxDist; // 以野值为阈值
+    for (int id = 0; id < armor_num_; ++id) {
+        auto predicted_armor_xyz =
+            h_armor_xyz(x_, id); // x_输入的是目标整车状态 根据目标整车状态来计算的
+        auto dist = (xyz_measured - predicted_armor_xyz).norm();
+        if (dist < best_dist) {
+            best_dist = dist;
+            result.id = id;
+        }
+    }
+    result.dist = best_dist;
+    return result;
 }
 
 } // namespace foray_auto_aim
